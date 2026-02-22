@@ -1,7 +1,7 @@
 # Hook Coverage Analysis
 
-> Last reviewed: 2026-02-20
-> Test suite: `tests/test-guards.sh` (154 tests)
+> Last reviewed: 2026-02-22
+> Test suite: `tests/test-guards.sh` (159 tests)
 
 ## Design Philosophy
 
@@ -28,20 +28,24 @@ more precise but brittle if gh adds subcommands.
 
 ### Loop Detection
 
-Strips all quoted strings from the command before checking — loop keywords inside
-`--body`, `--title`, commit messages, etc. are user data, not shell structure. Then
-matches shell loop syntax on the remaining structure.
+Uses `bash-parser` (Node.js) to produce a proper AST, then walks the tree looking for
+`For`/`While`/`Until` nodes whose body contains a `gh` `Command` node. This correctly
+distinguishes shell-level loops from loop keywords inside string arguments (quoted text,
+`-c` strings, `--body` content). Falls back to regex if `bash-parser` throws on exotic
+syntax.
 
 | Scenario | Likelihood | Impact | Status |
 |----------|:----------:|:------:|:------:|
-| `for x in ...; do gh ...; done` | Medium | Correctly blocked | Covered |
-| `while read ...; do gh ...; done` | Low-Medium | Correctly blocked | Covered |
-| Prose in `--title`/`--body`/`-m` (e.g. "for clarity in the suite") | High | None (stripped) | Fixed (2026-02-15) |
-| Loop keywords in heredoc inside `$(...)` | Very low | Stripped if within outer quotes | Acceptable |
-| `until ...; do` loops | Very low | Low | Not worth adding |
+| `for x in ...; do gh ...; done` | Medium | Correctly blocked (AST `For` node) | Covered |
+| `while read ...; do gh ...; done` | Low-Medium | Correctly blocked (AST `While` node) | Covered |
+| Prose in `--title`/`--body`/`-m` (e.g. "for clarity in the suite") | High | None (inside `Word` text) | Fixed (2026-02-15) |
+| `gh api \| python3 -c "for x in ..."` (pipe to processor) | Medium | None (AST `Pipeline`, not loop) | Fixed (2026-02-22, #15) |
+| Code examples with loops in `--body` content | Medium | None (inside `Word` text) | Fixed (2026-02-22, #15) |
+| `until ...; do` loops | Very low | Correctly blocked (AST `Until` node) | Covered |
+| `bash-parser` throws on exotic syntax | Low | Regex fallback activates | Covered |
 
-**Approach:** Strip `"..."` and `'...'` content, then match `\bfor\s+\w+\s+in\b`
-and `\bwhile\b.*;\s*do\b` on the remaining shell structure.
+**Approach:** Two-tier — AST-based primary via `bash-parser`, regex fallback (strip
+`"..."` and `'...'` content, match loop patterns) when the parser chokes.
 
 ### Write Detection
 
@@ -119,7 +123,7 @@ These are known scenarios we intentionally do not cover:
 
 3. **No git remotes in CWD** — Unusual for Claude Code sessions. Blocks with guidance.
 
-4. **`until` loops** — Claude almost never generates these. User overrides.
+4. **`until` loops** — Now detected by AST parser. Only a gap if regex fallback activates.
 
 5. **Case-sensitive owner matching** — GitHub normalizes owners to lowercase. Not a
    real-world issue.

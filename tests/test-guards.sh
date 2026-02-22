@@ -610,6 +610,43 @@ expect_allow \
   "gh issue create --repo $OWN_OWNER/bosun --title \"test\" --body \"run the check while idle; do not restart\"" \
   "$OWN_REPO"
 
+# --- Issue #15: pipe-to-processor and code-in-body false positives ---
+
+# gh api piped to python3 — the "for" is inside the python string, not a shell loop
+expect_allow \
+  "gh: pipe to python3 -c 'for x in ...' is not a shell loop (issue #15)" \
+  "$GH_HOOK" \
+  "gh api repos/$OWN_OWNER/bosun/issues --jq '.[].title' | python3 -c \"import sys; [print(line) for line in sys.stdin]\"" \
+  "$OWN_REPO"
+
+# gh api piped to python3 with while — same pattern, while variant
+expect_allow \
+  "gh: pipe to python3 -c 'while ...' is not a shell loop (issue #15)" \
+  "$GH_HOOK" \
+  "gh api repos/$OWN_OWNER/bosun/pulls | python3 -c \"import json,sys; data=json.load(sys.stdin); i=0\"" \
+  "$OWN_REPO"
+
+# Code examples containing loops inside --body content
+expect_allow \
+  "gh: code examples with loops in --body (issue #15)" \
+  "$GH_HOOK" \
+  "gh issue create --repo $OWN_OWNER/bosun --title \"Add loop docs\" --body \"Example: for item in list; do echo \$item; done\"" \
+  "$OWN_REPO"
+
+# Real for loop with gh must still block (regression guard)
+expect_block \
+  "gh: real for loop with gh still blocked (issue #15 regression)" \
+  "$GH_HOOK" \
+  "for repo in foo bar; do gh issue create -R someowner/\$repo --title test; done" \
+  "$OWN_REPO"
+
+# Simple pipeline (gh | grep) is not a loop
+expect_allow \
+  "gh: 'gh pr list | grep open' pipeline is not a loop" \
+  "$GH_HOOK" \
+  "gh pr list | grep open" \
+  "$OWN_REPO"
+
 # --- Gist commands: should pass through (user-scoped, not repo-scoped) ---
 
 expect_allow \

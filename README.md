@@ -52,8 +52,9 @@ upstream.
 - Fork-aware: when the CWD has an `upstream` remote, resolution is ambiguous (is the
   target the fork or the parent?). Requires `-R` to disambiguate.
 - Allows operations targeting the fork's parent repo when `-R` is explicitly provided.
-- Strips quoted strings before loop detection to avoid false positives from prose in
-  `--title`, `--body`, and commit messages.
+- Uses AST-based loop detection via `bash-parser` (Node.js) to distinguish real shell
+  loops from loop keywords inside string arguments (`--body` content, `python3 -c`
+  strings, heredocs). Falls back to regex if the parser chokes on exotic syntax.
 
 **Config read:**
 
@@ -161,6 +162,20 @@ Both `guard-push-remote.sh` and `guard-gh-write.sh` read the following env vars 
 See [`docs/hook-coverage.md`](docs/hook-coverage.md) for the full coverage analysis,
 including accepted gaps and the rationale for each.
 
+## Building
+
+The `guard-gh-write.sh` hook delegates to a Node.js bundle for AST-based shell parsing.
+The bundle is committed to the repo, so end users do not need to build anything. Contributors
+need Node.js and pnpm to rebuild after changes to `hooks/guard-gh-write.js`:
+
+```bash
+pnpm install
+pnpm run build
+```
+
+This produces `hooks/guard-gh-write.bundle.js` via esbuild. This file MUST be committed
+after any change to `hooks/guard-gh-write.js`.
+
 ## Running Tests
 
 ```bash
@@ -172,4 +187,4 @@ The test suite requires:
 - A fork repo with an `upstream` remote pointing to a repo you don't own.
 - An owned repo with only an `origin` remote.
 
-The suite covers 154 scenarios across all four hooks.
+The suite covers 159 scenarios across all four hooks.
