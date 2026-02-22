@@ -10843,40 +10843,36 @@ function parseInput(raw) {
     return "";
   }
 }
-function hasGhCommand(command) {
-  return /\bgh\b/.test(command);
-}
-function astHasLoopWithGh(node) {
-  if (!node || typeof node !== "object") return false;
-  if (node.type === "For" || node.type === "While" || node.type === "Until") {
-    if (astContainsGhCommand(node.do)) return true;
+function block(message, details) {
+  process.stderr.write(`\u{1F6AB} git-guardrails: ${message}
+`);
+  if (details) {
+    const lines = Array.isArray(details) ? details : [details];
+    for (const line of lines) {
+      process.stderr.write(line === "" ? "\n" : `   ${line}
+`);
+    }
   }
+  process.exit(2);
+}
+function walkAST(node, predicate) {
+  if (!node || typeof node !== "object") return false;
+  if (predicate(node)) return true;
   for (const key of Object.keys(node)) {
     const value = node[key];
     if (Array.isArray(value)) {
       for (const child of value) {
-        if (astHasLoopWithGh(child)) return true;
+        if (walkAST(child, predicate)) return true;
       }
     } else if (value && typeof value === "object" && value.type) {
-      if (astHasLoopWithGh(value)) return true;
+      if (walkAST(value, predicate)) return true;
     }
   }
   return false;
 }
-function astContainsGhCommand(node) {
-  if (!node || typeof node !== "object") return false;
-  if (node.type === "Command" && node.name?.text === "gh") return true;
-  for (const key of Object.keys(node)) {
-    const value = node[key];
-    if (Array.isArray(value)) {
-      for (const child of value) {
-        if (astContainsGhCommand(child)) return true;
-      }
-    } else if (value && typeof value === "object" && value.type) {
-      if (astContainsGhCommand(value)) return true;
-    }
-  }
-  return false;
+var LOOP_TYPES = /* @__PURE__ */ new Set(["For", "While", "Until"]);
+function isGhCommandNode(node) {
+  return node.type === "Command" && node.name?.text === "gh";
 }
 function detectLoopWithGhRegex(command) {
   const stripped = command.replace(/"[^"]*"/g, "").replace(/'[^']*'/g, "");
@@ -10886,7 +10882,10 @@ function detectLoopWithGhRegex(command) {
 function detectLoopWithGh(command) {
   try {
     const ast = parse(command);
-    return astHasLoopWithGh(ast);
+    return walkAST(
+      ast,
+      (node) => LOOP_TYPES.has(node.type) && walkAST(node.do, isGhCommandNode)
+    );
   } catch {
     return detectLoopWithGhRegex(command);
   }
@@ -10898,20 +10897,17 @@ var API_INPUT_FLAG = /gh\s+api.*\s--input\s/;
 function detectWrite(command) {
   return WRITE_ACTIONS.test(command) || API_WRITE_METHOD.test(command) || API_FIELD_FLAGS.test(command) || API_INPUT_FLAG.test(command);
 }
-function isGistCommand(command) {
-  return /gh\s+gist\s/.test(command);
-}
-function repoFromUrl(url) {
-  const cleaned = url.replace(/^.*:\/\/[^/]*\//, "").replace(/^[^:]*:/, "").replace(/\.git$/, "");
-  const match = cleaned.match(/^([^/]+\/[^/]+)/);
-  return match ? match[1] : "";
-}
-function execGit(args2, cwd) {
+function defaultExecGit(args2, cwd) {
   try {
     return execFileSync("git", args2, { cwd, encoding: "utf8", timeout: 3e3, stdio: ["pipe", "pipe", "ignore"] }).trim();
   } catch {
     return "";
   }
+}
+function repoFromUrl(url) {
+  const cleaned = url.replace(/^.*:\/\/[^/]*\//, "").replace(/^[^:]*:/, "").replace(/\.git$/, "");
+  const match = cleaned.match(/^([^/]+\/[^/]+)/);
+  return match ? match[1] : "";
 }
 function parseWorkDir(command) {
   const cwd = process.cwd();
@@ -10926,7 +10922,7 @@ function parseWorkDir(command) {
   if (lastTarget.startsWith("~")) return lastTarget.replace(/^~/, process.env.HOME ?? "");
   return `${cwd}/${lastTarget}`;
 }
-function resolveTargetRepo(command, workDir, config) {
+function resolveTargetRepo(command, workDir, config, git = defaultExecGit) {
   const repoFlagMatch = command.match(/(-R|--repo)\s+([^ ]+)/);
   if (repoFlagMatch) {
     return { repo: repoFlagMatch[2] };
@@ -10948,61 +10944,33 @@ function resolveTargetRepo(command, workDir, config) {
       return { repo: apiMatch[1] };
     }
   }
-  const upstreamUrl = execGit(["remote", "get-url", "upstream"], workDir);
+  const upstreamUrl = git(["remote", "get-url", "upstream"], workDir);
   if (upstreamUrl) {
-    const upstreamRepo = repoFromUrl(upstreamUrl);
-    const originUrl2 = execGit(["remote", "get-url", "origin"], workDir);
-    const originRepo = repoFromUrl(originUrl2);
     return {
-      error: true,
-      stderr: [
-        "\u{1F6AB} git-guardrails: Write operation in a fork \u2014 specify target with -R",
-        `   Fork:     ${originRepo}`,
-        `   Upstream: ${upstreamRepo}`,
-        "",
-        `   Use -R ${originRepo} to target your fork`,
-        `   Use -R ${upstreamRepo} to target upstream (if intended)`
-      ].join("\n") + "\n"
+      error: "fork",
+      origin: repoFromUrl(git(["remote", "get-url", "origin"], workDir)),
+      upstream: repoFromUrl(upstreamUrl)
     };
   }
-  const originUrl = execGit(["remote", "get-url", "origin"], workDir);
+  const originUrl = git(["remote", "get-url", "origin"], workDir);
   if (originUrl) {
     return { repo: repoFromUrl(originUrl) };
   }
-  return {
-    error: true,
-    stderr: [
-      "\u26A0\uFE0F  git-guardrails: Cannot determine target repo for gh write operation",
-      "   Use -R owner/repo to specify target explicitly."
-    ].join("\n") + "\n"
-  };
+  return { error: "unresolvable" };
 }
 function isAllowed(repo, config) {
   const owner = repo.split("/")[0];
-  for (const allowedRepo of config.allowedRepos) {
-    if (repo === allowedRepo) return true;
-  }
-  for (const allowedOwner of config.allowedOwners) {
-    if (owner === allowedOwner) return true;
-  }
-  return false;
+  return config.allowedRepos.includes(repo) || config.allowedOwners.includes(owner);
 }
-function isForkParent(targetRepo, workDir) {
-  const upstreamUrl = execGit(["remote", "get-url", "upstream"], workDir);
+function isForkParent(targetRepo, workDir, git = defaultExecGit) {
+  const upstreamUrl = git(["remote", "get-url", "upstream"], workDir);
   if (!upstreamUrl) return false;
   return repoFromUrl(upstreamUrl) === targetRepo;
-}
-function block(message, detail) {
-  process.stderr.write(`\u{1F6AB} git-guardrails: ${message}
-`);
-  if (detail) process.stderr.write(`   ${detail}
-`);
-  process.exit(2);
 }
 async function main() {
   const raw = await readStdin();
   const command = parseInput(raw);
-  if (!hasGhCommand(command)) process.exit(0);
+  if (!/\bgh\b/.test(command)) process.exit(0);
   const allowedOwners = (process.env.GIT_GUARDRAILS_ALLOWED_OWNERS ?? "").split(/\s+/).filter(Boolean);
   const allowedRepos = (process.env.GIT_GUARDRAILS_ALLOWED_REPOS ?? "").split(/\s+/).filter(Boolean);
   const config = { allowedOwners, allowedRepos };
@@ -11013,23 +10981,31 @@ async function main() {
   if (allowedOwners.length === 0) {
     block("Not configured \u2014 run /guardrails-init to set up", "GIT_GUARDRAILS_ALLOWED_OWNERS is not set.");
   }
-  if (isGistCommand(command)) process.exit(0);
+  if (/gh\s+gist\s/.test(command)) process.exit(0);
   const workDir = parseWorkDir(command);
   const result = resolveTargetRepo(command, workDir, config);
-  if (result.error) {
-    process.stderr.write(result.stderr);
+  if (result.error === "fork") {
+    block("Write operation in a fork \u2014 specify target with -R", [
+      `Fork:     ${result.origin}`,
+      `Upstream: ${result.upstream}`,
+      "",
+      `Use -R ${result.origin} to target your fork`,
+      `Use -R ${result.upstream} to target upstream (if intended)`
+    ]);
+  }
+  if (result.error === "unresolvable") {
+    process.stderr.write("\u26A0\uFE0F  git-guardrails: Cannot determine target repo for gh write operation\n");
+    process.stderr.write("   Use -R owner/repo to specify target explicitly.\n");
     process.exit(2);
   }
   if (!isAllowed(result.repo, config) && !isForkParent(result.repo, workDir)) {
-    process.stderr.write([
-      `\u{1F6AB} git-guardrails: gh write targets repo you don't own`,
-      `   Target:  ${result.repo}`,
-      `   Allowed: owners=[${allowedOwners.join(" ")}] repos=[${allowedRepos.join(" ")}]`,
+    block("gh write targets repo you don't own", [
+      `Target:  ${result.repo}`,
+      `Allowed: owners=[${allowedOwners.join(" ")}] repos=[${allowedRepos.join(" ")}]`,
       "",
-      "   To override: add to GIT_GUARDRAILS_ALLOWED_REPOS",
-      "   Or specify:  -R owner/repo"
-    ].join("\n") + "\n");
-    process.exit(2);
+      "To override: add to GIT_GUARDRAILS_ALLOWED_REPOS",
+      "Or specify:  -R owner/repo"
+    ]);
   }
   process.exit(0);
 }

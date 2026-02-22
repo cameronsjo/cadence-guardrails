@@ -15,12 +15,7 @@
 const { execFileSync } = require("node:child_process");
 const parse = require("bash-parser");
 
-// NOTE: This file uses execFileSync (not exec/execSync) for all subprocess
-// calls. execFileSync does not invoke a shell, so there is no command injection
-// risk. The arguments (e.g. "remote", "get-url", "upstream") are static strings
-// or derived from git remote URLs, never from user input.
-
-// --- Helpers ---
+// --- I/O ---
 
 /** Read all of stdin as a string. */
 function readStdin() {
@@ -42,52 +37,45 @@ function parseInput(raw) {
   }
 }
 
-/** Quick-exit check: does the command contain `gh` as a word? */
-function hasGhCommand(command) {
-  return /\bgh\b/.test(command);
+/** Write a block message to stderr and exit 2. */
+function block(message, details) {
+  process.stderr.write(`\u{1F6AB} git-guardrails: ${message}\n`);
+  if (details) {
+    const lines = Array.isArray(details) ? details : [details];
+    for (const line of lines) {
+      process.stderr.write(line === "" ? "\n" : `   ${line}\n`);
+    }
+  }
+  process.exit(2);
 }
 
-// --- AST-based loop detection ---
+// --- AST helpers ---
 
-/** Walk the AST looking for For/While/Until nodes whose body contains a gh Command. */
-function astHasLoopWithGh(node) {
+/** Walk an AST tree, returning true if any node satisfies the predicate. */
+function walkAST(node, predicate) {
   if (!node || typeof node !== "object") return false;
-
-  if (node.type === "For" || node.type === "While" || node.type === "Until") {
-    if (astContainsGhCommand(node.do)) return true;
-  }
+  if (predicate(node)) return true;
 
   for (const key of Object.keys(node)) {
     const value = node[key];
     if (Array.isArray(value)) {
       for (const child of value) {
-        if (astHasLoopWithGh(child)) return true;
+        if (walkAST(child, predicate)) return true;
       }
     } else if (value && typeof value === "object" && value.type) {
-      if (astHasLoopWithGh(value)) return true;
+      if (walkAST(value, predicate)) return true;
     }
   }
   return false;
 }
 
-/** Recursively search an AST subtree for a Command node named `gh`. */
-function astContainsGhCommand(node) {
-  if (!node || typeof node !== "object") return false;
+const LOOP_TYPES = new Set(["For", "While", "Until"]);
 
-  if (node.type === "Command" && node.name?.text === "gh") return true;
-
-  for (const key of Object.keys(node)) {
-    const value = node[key];
-    if (Array.isArray(value)) {
-      for (const child of value) {
-        if (astContainsGhCommand(child)) return true;
-      }
-    } else if (value && typeof value === "object" && value.type) {
-      if (astContainsGhCommand(value)) return true;
-    }
-  }
-  return false;
+function isGhCommandNode(node) {
+  return node.type === "Command" && node.name?.text === "gh";
 }
+
+// --- Loop detection ---
 
 /** Regex fallback for when bash-parser throws. Matches the original bash behavior. */
 function detectLoopWithGhRegex(command) {
@@ -96,11 +84,13 @@ function detectLoopWithGhRegex(command) {
   return hasLoop && /\bgh\b/.test(command);
 }
 
-/** Primary loop detection: AST-based with regex fallback. */
+/** AST-based loop detection with regex fallback. */
 function detectLoopWithGh(command) {
   try {
     const ast = parse(command);
-    return astHasLoopWithGh(ast);
+    return walkAST(ast, (node) =>
+      LOOP_TYPES.has(node.type) && walkAST(node.do, isGhCommandNode)
+    );
   } catch {
     return detectLoopWithGhRegex(command);
   }
@@ -120,11 +110,16 @@ function detectWrite(command) {
     || API_INPUT_FLAG.test(command);
 }
 
-function isGistCommand(command) {
-  return /gh\s+gist\s/.test(command);
-}
+// --- Git helpers ---
 
-// --- Repo resolution ---
+/** Run a git command safely via execFileSync (no shell invocation). */
+function defaultExecGit(args, cwd) {
+  try {
+    return execFileSync("git", args, { cwd, encoding: "utf8", timeout: 3000, stdio: ["pipe", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+}
 
 /** Normalize any git remote URL to owner/repo. */
 function repoFromUrl(url) {
@@ -136,14 +131,7 @@ function repoFromUrl(url) {
   return match ? match[1] : "";
 }
 
-/** Run a git command safely via execFileSync (no shell invocation). */
-function execGit(args, cwd) {
-  try {
-    return execFileSync("git", args, { cwd, encoding: "utf8", timeout: 3000, stdio: ["pipe", "pipe", "ignore"] }).trim();
-  } catch {
-    return "";
-  }
-}
+// --- Command parsing ---
 
 /** Extract the last cd target from a chained command. */
 function parseWorkDir(command) {
@@ -160,6 +148,8 @@ function parseWorkDir(command) {
   return `${cwd}/${lastTarget}`;
 }
 
+// --- Repo resolution ---
+
 /**
  * Resolve the target repo from the command, in priority order:
  * 1. Explicit -R or --repo flag
@@ -167,9 +157,12 @@ function parseWorkDir(command) {
  * 3. gh api repos/OWNER/REPO path
  * 4. Git remotes (with fork detection)
  *
- * Returns { repo: string } on success, or { error: true, stderr: string } to block.
+ * Returns one of:
+ *   { repo: string }
+ *   { error: "fork", origin: string, upstream: string }
+ *   { error: "unresolvable" }
  */
-function resolveTargetRepo(command, workDir, config) {
+function resolveTargetRepo(command, workDir, config, git = defaultExecGit) {
   // 1. Explicit -R or --repo flag
   const repoFlagMatch = command.match(/(-R|--repo)\s+([^ ]+)/);
   if (repoFlagMatch) {
@@ -198,67 +191,35 @@ function resolveTargetRepo(command, workDir, config) {
   }
 
   // 4. Git remotes
-  const upstreamUrl = execGit(["remote", "get-url", "upstream"], workDir);
+  const upstreamUrl = git(["remote", "get-url", "upstream"], workDir);
   if (upstreamUrl) {
-    // Fork detected — require -R to disambiguate
-    const upstreamRepo = repoFromUrl(upstreamUrl);
-    const originUrl = execGit(["remote", "get-url", "origin"], workDir);
-    const originRepo = repoFromUrl(originUrl);
     return {
-      error: true,
-      stderr: [
-        "\u{1F6AB} git-guardrails: Write operation in a fork \u2014 specify target with -R",
-        `   Fork:     ${originRepo}`,
-        `   Upstream: ${upstreamRepo}`,
-        "",
-        `   Use -R ${originRepo} to target your fork`,
-        `   Use -R ${upstreamRepo} to target upstream (if intended)`,
-      ].join("\n") + "\n",
+      error: "fork",
+      origin: repoFromUrl(git(["remote", "get-url", "origin"], workDir)),
+      upstream: repoFromUrl(upstreamUrl),
     };
   }
 
-  // Non-fork: resolve from origin
-  const originUrl = execGit(["remote", "get-url", "origin"], workDir);
+  const originUrl = git(["remote", "get-url", "origin"], workDir);
   if (originUrl) {
     return { repo: repoFromUrl(originUrl) };
   }
 
-  // No repo resolvable
-  return {
-    error: true,
-    stderr: [
-      "\u26A0\uFE0F  git-guardrails: Cannot determine target repo for gh write operation",
-      "   Use -R owner/repo to specify target explicitly.",
-    ].join("\n") + "\n",
-  };
+  return { error: "unresolvable" };
 }
 
 // --- Ownership check ---
 
 function isAllowed(repo, config) {
   const owner = repo.split("/")[0];
-  for (const allowedRepo of config.allowedRepos) {
-    if (repo === allowedRepo) return true;
-  }
-  for (const allowedOwner of config.allowedOwners) {
-    if (owner === allowedOwner) return true;
-  }
-  return false;
+  return config.allowedRepos.includes(repo)
+    || config.allowedOwners.includes(owner);
 }
 
-function isForkParent(targetRepo, workDir) {
-  const upstreamUrl = execGit(["remote", "get-url", "upstream"], workDir);
+function isForkParent(targetRepo, workDir, git = defaultExecGit) {
+  const upstreamUrl = git(["remote", "get-url", "upstream"], workDir);
   if (!upstreamUrl) return false;
   return repoFromUrl(upstreamUrl) === targetRepo;
-}
-
-// --- Output helpers ---
-
-/** Write a block message to stderr and exit 2. */
-function block(message, detail) {
-  process.stderr.write(`\u{1F6AB} git-guardrails: ${message}\n`);
-  if (detail) process.stderr.write(`   ${detail}\n`);
-  process.exit(2);
 }
 
 // --- Main ---
@@ -268,7 +229,7 @@ async function main() {
   const command = parseInput(raw);
 
   // Quick exit: no gh command
-  if (!hasGhCommand(command)) process.exit(0);
+  if (!/\bgh\b/.test(command)) process.exit(0);
 
   const allowedOwners = (process.env.GIT_GUARDRAILS_ALLOWED_OWNERS ?? "").split(/\s+/).filter(Boolean);
   const allowedRepos = (process.env.GIT_GUARDRAILS_ALLOWED_REPOS ?? "").split(/\s+/).filter(Boolean);
@@ -288,28 +249,37 @@ async function main() {
   }
 
   // Gists are user-scoped — no ownership to validate
-  if (isGistCommand(command)) process.exit(0);
+  if (/gh\s+gist\s/.test(command)) process.exit(0);
 
   // Resolve working directory and target repo
   const workDir = parseWorkDir(command);
   const result = resolveTargetRepo(command, workDir, config);
 
-  if (result.error) {
-    process.stderr.write(result.stderr);
+  if (result.error === "fork") {
+    block("Write operation in a fork \u2014 specify target with -R", [
+      `Fork:     ${result.origin}`,
+      `Upstream: ${result.upstream}`,
+      "",
+      `Use -R ${result.origin} to target your fork`,
+      `Use -R ${result.upstream} to target upstream (if intended)`,
+    ]);
+  }
+
+  if (result.error === "unresolvable") {
+    process.stderr.write("\u26A0\uFE0F  git-guardrails: Cannot determine target repo for gh write operation\n");
+    process.stderr.write("   Use -R owner/repo to specify target explicitly.\n");
     process.exit(2);
   }
 
   // Ownership check
   if (!isAllowed(result.repo, config) && !isForkParent(result.repo, workDir)) {
-    process.stderr.write([
-      `\u{1F6AB} git-guardrails: gh write targets repo you don't own`,
-      `   Target:  ${result.repo}`,
-      `   Allowed: owners=[${allowedOwners.join(" ")}] repos=[${allowedRepos.join(" ")}]`,
+    block("gh write targets repo you don't own", [
+      `Target:  ${result.repo}`,
+      `Allowed: owners=[${allowedOwners.join(" ")}] repos=[${allowedRepos.join(" ")}]`,
       "",
-      "   To override: add to GIT_GUARDRAILS_ALLOWED_REPOS",
-      "   Or specify:  -R owner/repo",
-    ].join("\n") + "\n");
-    process.exit(2);
+      "To override: add to GIT_GUARDRAILS_ALLOWED_REPOS",
+      "Or specify:  -R owner/repo",
+    ]);
   }
 
   process.exit(0);
