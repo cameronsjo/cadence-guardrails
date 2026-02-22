@@ -1922,7 +1922,7 @@ var require_vlq = __commonJS({
   "node_modules/.pnpm/vlq@0.2.3/node_modules/vlq/dist/vlq.js"(exports2, module2) {
     (function(global, factory) {
       typeof exports2 === "object" && typeof module2 !== "undefined" ? factory(exports2) : typeof define === "function" && define.amd ? define(["exports"], factory) : factory(global.vlq = global.vlq || {});
-    })(exports2, function(exports3) {
+    })(exports2, (function(exports3) {
       "use strict";
       var charToInteger = {};
       var integerToChar = {};
@@ -1985,7 +1985,7 @@ var require_vlq = __commonJS({
       exports3.decode = decode;
       exports3.encode = encode;
       Object.defineProperty(exports3, "__esModule", { value: true });
-    });
+    }));
   }
 });
 
@@ -3188,7 +3188,7 @@ var require_lib = __commonJS({
       this.binop = conf.binop || null;
       this.updateContext = null;
     };
-    var KeywordTokenType = function(_TokenType) {
+    var KeywordTokenType = (function(_TokenType) {
       inherits(KeywordTokenType2, _TokenType);
       function KeywordTokenType2(name) {
         var options = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {};
@@ -3197,15 +3197,15 @@ var require_lib = __commonJS({
         return possibleConstructorReturn(this, _TokenType.call(this, name, options));
       }
       return KeywordTokenType2;
-    }(TokenType);
-    var BinopTokenType = function(_TokenType2) {
+    })(TokenType);
+    var BinopTokenType = (function(_TokenType2) {
       inherits(BinopTokenType2, _TokenType2);
       function BinopTokenType2(name, prec) {
         classCallCheck(this, BinopTokenType2);
         return possibleConstructorReturn(this, _TokenType2.call(this, name, { beforeExpr, binop: prec }));
       }
       return BinopTokenType2;
-    }(TokenType);
+    })(TokenType);
     var types = {
       num: new TokenType("num", { startsExpr }),
       regexp: new TokenType("regexp", { startsExpr }),
@@ -3404,7 +3404,7 @@ var require_lib = __commonJS({
         }
       }
     }
-    var State = function() {
+    var State = (function() {
       function State2() {
         classCallCheck(this, State2);
       }
@@ -3451,7 +3451,7 @@ var require_lib = __commonJS({
         return state;
       };
       return State2;
-    }();
+    })();
     var Token = function Token2(state) {
       classCallCheck(this, Token2);
       this.type = state.type;
@@ -3467,7 +3467,7 @@ var require_lib = __commonJS({
         return String.fromCharCode((code - 65536 >> 10) + 55296, (code - 65536 & 1023) + 56320);
       }
     }
-    var Tokenizer = function() {
+    var Tokenizer = (function() {
       function Tokenizer2(options, input) {
         classCallCheck(this, Tokenizer2);
         this.state = new State();
@@ -4169,10 +4169,10 @@ var require_lib = __commonJS({
         }
       };
       return Tokenizer2;
-    }();
+    })();
     var plugins = {};
     var frozenDeprecatedWildcardPluginList = ["jsx", "doExpressions", "objectRestSpread", "decorators", "classProperties", "exportExtensions", "asyncGenerators", "functionBind", "functionSent", "dynamicImport", "flow"];
-    var Parser = function(_Tokenizer) {
+    var Parser = (function(_Tokenizer) {
       inherits(Parser2, _Tokenizer);
       function Parser2(options, input) {
         classCallCheck(this, Parser2);
@@ -4259,7 +4259,7 @@ var require_lib = __commonJS({
         return this.parseTopLevel(file, program);
       };
       return Parser2;
-    }(Tokenizer);
+    })(Tokenizer);
     var pp = Parser.prototype;
     pp.addExtra = function(node, key, val) {
       if (!node) return;
@@ -6328,7 +6328,7 @@ var require_lib = __commonJS({
     };
     var pp$4 = Parser.prototype;
     var commentKeys = ["leadingComments", "trailingComments", "innerComments"];
-    var Node = function() {
+    var Node = (function() {
       function Node2(pos, loc, filename) {
         classCallCheck(this, Node2);
         this.type = "";
@@ -6347,7 +6347,7 @@ var require_lib = __commonJS({
         return node2;
       };
       return Node2;
-    }();
+    })();
     pp$4.startNode = function() {
       return new Node(this.state.start, this.state.startLoc, this.filename);
     };
@@ -8967,7 +8967,7 @@ var require_fromcodepoint = __commonJS({
   "node_modules/.pnpm/string.fromcodepoint@0.2.1/node_modules/string.fromcodepoint/fromcodepoint.js"() {
     if (!String.fromCodePoint) {
       (function() {
-        var defineProperty = function() {
+        var defineProperty = (function() {
           try {
             var object = {};
             var $defineProperty = Object.defineProperty;
@@ -8975,7 +8975,7 @@ var require_fromcodepoint = __commonJS({
           } catch (error) {
           }
           return result;
-        }();
+        })();
         var stringFromCharCode = String.fromCharCode;
         var floor = Math.floor;
         var fromCodePoint = function(_) {
@@ -10230,7 +10230,7 @@ var require_enums = __commonJS({
 // node_modules/.pnpm/bash-parser@0.5.0/node_modules/bash-parser/src/modes/posix/built-grammar.js
 var require_built_grammar = __commonJS({
   "node_modules/.pnpm/bash-parser@0.5.0/node_modules/bash-parser/src/modes/posix/built-grammar.js"(exports2, module2) {
-    var parser = function() {
+    var parser = (function() {
       var o = function(k, v, o2, l) {
         for (o2 = o2 || {}, l = k.length; l--; o2[k[l]] = v) ;
         return o2;
@@ -10612,7 +10612,7 @@ var require_built_grammar = __commonJS({
       Parser.prototype = parser2;
       parser2.Parser = Parser;
       return new Parser();
-    }();
+    })();
     if (typeof require !== "undefined" && typeof exports2 !== "undefined") {
       exports2.parser = parser;
       exports2.Parser = parser.Parser;
