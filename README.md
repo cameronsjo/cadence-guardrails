@@ -112,6 +112,13 @@ The two blocking hooks guard different surfaces and use different resolution mod
 | **Allowed repos override** | Not applicable (URL owner match only) | `GIT_GUARDRAILS_ALLOWED_REPOS` |
 | **Non-GitHub URLs** | Allowed through (can't verify) | Allowed through (can't verify) |
 
+## Install
+
+```bash
+claude plugin install git-guardrails@workbench
+claude plugin enable git-guardrails@workbench
+```
+
 ## Setup
 
 Run `/guardrails-init` in any Claude Code session after installing the plugin. This
