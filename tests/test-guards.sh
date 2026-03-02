@@ -1681,6 +1681,319 @@ rm -f "$idle_marker"
 echo ""
 
 # ===================================================================
+# guard-gh-dangerous.sh
+# ===================================================================
+
+DANGEROUS_HOOK="$HOOKS_DIR/guard-gh-dangerous.sh"
+
+echo "--- guard-gh-dangerous.sh: core blocking ---"
+echo ""
+
+# --- The exact scenario that burned us ---
+
+expect_block \
+  "dangerous: gh repo delete owner/repo --yes" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete $OWN_OWNER/some-repo --yes"
+
+expect_block \
+  "dangerous: gh repo delete owner/repo (no --yes)" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete $OWN_OWNER/my-repo"
+
+expect_block \
+  "dangerous: gh repo delete bare repo name" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete some-repo"
+
+expect_block \
+  "dangerous: gh repo delete bare name --yes" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete some-repo --yes"
+
+expect_block \
+  "dangerous: gh repo delete with --confirm" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete $OWN_OWNER/my-repo --confirm"
+
+# --- Ownership doesn't matter — block even for own repos ---
+
+expect_block \
+  "dangerous: gh repo delete own repo (the gap guard-gh-write misses)" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete $OWN_OWNER/git-guardrails --yes"
+
+expect_block \
+  "dangerous: gh repo delete upstream repo" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete $UPSTREAM_OWNER/their-repo --yes"
+
+expect_block \
+  "dangerous: gh repo delete unrelated org" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete someorg/important-repo --yes"
+
+echo ""
+echo "--- guard-gh-dangerous.sh: command chaining ---"
+echo ""
+
+# --- Compound commands ---
+
+expect_block \
+  "dangerous: cd && gh repo delete" \
+  "$DANGEROUS_HOOK" \
+  "cd /tmp && gh repo delete $OWN_OWNER/my-repo --yes"
+
+expect_block \
+  "dangerous: gh repo delete && gh repo delete (batch)" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete $OWN_OWNER/repo-a --yes && gh repo delete $OWN_OWNER/repo-b --yes"
+
+expect_block \
+  "dangerous: command ; gh repo delete (semicolon)" \
+  "$DANGEROUS_HOOK" \
+  "echo 'deleting'; gh repo delete $OWN_OWNER/my-repo --yes"
+
+expect_block \
+  "dangerous: gh repo delete with stderr redirect" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete $OWN_OWNER/my-repo --yes 2>&1"
+
+expect_block \
+  "dangerous: gh repo delete with stdout redirect" \
+  "$DANGEROUS_HOOK" \
+  "gh repo delete $OWN_OWNER/my-repo --yes > /dev/null"
+
+expect_block \
+  "dangerous: pipe into gh repo delete" \
+  "$DANGEROUS_HOOK" \
+  "echo yes | gh repo delete $OWN_OWNER/my-repo"
+
+echo ""
+echo "--- guard-gh-dangerous.sh: loops ---"
+echo ""
+
+# --- Loop / batch patterns (mass deletion) ---
+
+expect_block \
+  "dangerous: for loop with gh repo delete" \
+  "$DANGEROUS_HOOK" \
+  "for repo in a b c; do gh repo delete $OWN_OWNER/\$repo --yes; done"
+
+expect_block \
+  "dangerous: while loop with gh repo delete" \
+  "$DANGEROUS_HOOK" \
+  "cat repos.txt | while read repo; do gh repo delete \$repo --yes; done"
+
+expect_block \
+  "dangerous: xargs gh repo delete" \
+  "$DANGEROUS_HOOK" \
+  "cat repos.txt | xargs -I{} gh repo delete {} --yes"
+
+expect_block \
+  "dangerous: bash -c 'gh repo delete'" \
+  "$DANGEROUS_HOOK" \
+  "bash -c \"gh repo delete $OWN_OWNER/my-repo --yes\""
+
+expect_block \
+  "dangerous: sh -c 'gh repo delete'" \
+  "$DANGEROUS_HOOK" \
+  "sh -c \"gh repo delete $OWN_OWNER/my-repo --yes\""
+
+echo ""
+echo "--- guard-gh-dangerous.sh: passthrough ---"
+echo ""
+
+# --- Non-delete gh commands pass through ---
+
+expect_allow \
+  "dangerous: gh repo create passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh repo create $OWN_OWNER/new-repo --private"
+
+expect_allow \
+  "dangerous: gh repo archive passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh repo archive $OWN_OWNER/old-repo"
+
+expect_allow \
+  "dangerous: gh repo view passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh repo view $OWN_OWNER/my-repo"
+
+expect_allow \
+  "dangerous: gh repo list passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh repo list $OWN_OWNER"
+
+expect_allow \
+  "dangerous: gh repo clone passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh repo clone $OWN_OWNER/my-repo"
+
+expect_allow \
+  "dangerous: gh repo fork passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh repo fork $UPSTREAM_OWNER/their-repo"
+
+expect_allow \
+  "dangerous: gh repo rename passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh repo rename new-name"
+
+expect_allow \
+  "dangerous: gh repo edit passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh repo edit --description \"test\""
+
+expect_allow \
+  "dangerous: gh pr create passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh pr create --title 'fix' --body 'stuff'"
+
+expect_allow \
+  "dangerous: gh issue create passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh issue create --title 'bug'"
+
+expect_allow \
+  "dangerous: gh release delete passes through (not repo-level)" \
+  "$DANGEROUS_HOOK" \
+  "gh release delete v1.0.0 --yes"
+
+expect_allow \
+  "dangerous: gh pr close passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh pr close 42"
+
+expect_allow \
+  "dangerous: gh gist delete passes through" \
+  "$DANGEROUS_HOOK" \
+  "gh gist delete abc123"
+
+expect_allow \
+  "dangerous: non-gh command passes through" \
+  "$DANGEROUS_HOOK" \
+  "git push origin main"
+
+expect_allow \
+  "dangerous: npm test passes through" \
+  "$DANGEROUS_HOOK" \
+  "npm test"
+
+expect_allow \
+  "dangerous: empty command passes through" \
+  "$DANGEROUS_HOOK" \
+  ""
+
+echo ""
+echo "--- guard-gh-dangerous.sh: prose resistance ---"
+echo ""
+
+# --- False positive resistance: "delete" in quoted strings ---
+
+expect_allow \
+  "dangerous: 'delete' in --body prose" \
+  "$DANGEROUS_HOOK" \
+  "gh issue create --title 'cleanup' --body 'we should delete the old repo later'"
+
+expect_allow \
+  "dangerous: 'delete' in --title prose" \
+  "$DANGEROUS_HOOK" \
+  "gh pr create --title 'delete unused files' --body 'cleanup'"
+
+expect_allow \
+  "dangerous: 'repo delete' in single-quoted prose" \
+  "$DANGEROUS_HOOK" \
+  "gh issue create --body 'run gh repo delete to clean up'"
+
+expect_allow \
+  "dangerous: 'gh repo delete' in double-quoted --body" \
+  "$DANGEROUS_HOOK" \
+  "gh issue create --title \"cleanup\" --body \"use gh repo delete if you want to remove it\""
+
+expect_allow \
+  "dangerous: 'repo delete' in --title with real create" \
+  "$DANGEROUS_HOOK" \
+  "gh issue create --title \"Document gh repo delete guardrail\" --body \"Added protection\""
+
+expect_allow \
+  "dangerous: mixed prose with delete keyword" \
+  "$DANGEROUS_HOOK" \
+  "gh pr create --title \"feat: add delete button\" --body \"Users can delete their account\""
+
+expect_allow \
+  "dangerous: code example in --body mentioning repo delete" \
+  "$DANGEROUS_HOOK" \
+  "gh issue create --title \"docs\" --body \"Example: gh repo delete owner/repo --yes\""
+
+expect_allow \
+  "dangerous: multi-keyword body (delete + repo in different contexts)" \
+  "$DANGEROUS_HOOK" \
+  "gh issue create --title \"cleanup\" --body \"delete the cache and update the repo docs\""
+
+# Exec wrapper with prose (not a real delete — bash -c echoing docs)
+expect_allow \
+  "dangerous: bash -c with non-delete gh command" \
+  "$DANGEROUS_HOOK" \
+  "bash -c \"gh issue list\""
+
+expect_allow \
+  "dangerous: bash -c with no gh at all" \
+  "$DANGEROUS_HOOK" \
+  "bash -c \"echo hello\""
+
+echo ""
+echo "--- guard-gh-dangerous.sh: malformed input ---"
+echo ""
+
+# --- Malformed / unexpected input ---
+
+total=$((total + 1))
+set +e
+output=$(echo "" | (cd "$OWN_REPO" && bash "$DANGEROUS_HOOK" 2>&1))
+exit_code=$?
+set -e
+if [ "$exit_code" -eq 0 ]; then
+  echo "  PASS  dangerous: empty input (no JSON) handled gracefully"
+  passed=$((passed + 1))
+else
+  echo "  FAIL  dangerous: empty input (exit $exit_code)"
+  echo "        output: $output"
+  failed=$((failed + 1))
+fi
+
+total=$((total + 1))
+set +e
+output=$(echo '{"tool_name":"Bash","tool_input":{}}' | (cd "$OWN_REPO" && bash "$DANGEROUS_HOOK" 2>&1))
+exit_code=$?
+set -e
+if [ "$exit_code" -eq 0 ]; then
+  echo "  PASS  dangerous: missing command field handled gracefully"
+  passed=$((passed + 1))
+else
+  echo "  FAIL  dangerous: missing command field (exit $exit_code)"
+  echo "        output: $output"
+  failed=$((failed + 1))
+fi
+
+total=$((total + 1))
+set +e
+output=$(echo 'not json at all' | (cd "$OWN_REPO" && bash "$DANGEROUS_HOOK" 2>&1))
+exit_code=$?
+set -e
+if [ "$exit_code" -eq 0 ]; then
+  echo "  PASS  dangerous: invalid JSON handled gracefully"
+  passed=$((passed + 1))
+else
+  echo "  FAIL  dangerous: invalid JSON (exit $exit_code)"
+  echo "        output: $output"
+  failed=$((failed + 1))
+fi
+
+echo ""
+
+# ===================================================================
 # Summary
 # ===================================================================
 
