@@ -9,5 +9,6 @@
     "hooks",
     "workflow",
     "guardrails"
-  ]
+  ],
+  "version": "0.0.0"
 }
