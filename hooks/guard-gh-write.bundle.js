@@ -10982,6 +10982,7 @@ async function main() {
     block("Not configured \u2014 run /guardrails-init to set up", "GIT_GUARDRAILS_ALLOWED_OWNERS is not set.");
   }
   if (/gh\s+gist\s/.test(command)) process.exit(0);
+  if (/gh\s+repo\s+fork\b/.test(command)) process.exit(0);
   const workDir = parseWorkDir(command);
   const result = resolveTargetRepo(command, workDir, config);
   if (result.error === "fork") {

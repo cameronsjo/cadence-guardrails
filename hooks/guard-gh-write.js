@@ -251,6 +251,9 @@ async function main() {
   // Gists are user-scoped — no ownership to validate
   if (/gh\s+gist\s/.test(command)) process.exit(0);
 
+  // Fork creates a copy under your own account — safe regardless of target
+  if (/gh\s+repo\s+fork\b/.test(command)) process.exit(0);
+
   // Resolve working directory and target repo
   const workDir = parseWorkDir(command);
   const result = resolveTargetRepo(command, workDir, config);

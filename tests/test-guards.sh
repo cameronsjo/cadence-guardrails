@@ -695,12 +695,24 @@ expect_allow \
   "gh workflow run ci.yml -R $FORK_REPO_NAME" \
   "$FORK_REPO"
 
-# --- gh repo fork ---
+# --- gh repo fork: safe passthrough (creates copy under your account) ---
 
-expect_block \
-  "gh: 'gh repo fork' in fork CWD (no -R)" \
+expect_allow \
+  "gh: 'gh repo fork' passes through (user-scoped)" \
   "$GH_HOOK" \
   "gh repo fork $UPSTREAM_REPO_NAME" \
+  "$FORK_REPO"
+
+expect_allow \
+  "gh: 'gh repo fork --clone=false' passes through" \
+  "$GH_HOOK" \
+  "gh repo fork $UPSTREAM_REPO_NAME --clone=false" \
+  "$OWN_REPO"
+
+expect_allow \
+  "gh: 'gh repo fork' from fork CWD (no arg)" \
+  "$GH_HOOK" \
+  "gh repo fork --clone=false --remote-name fork" \
   "$FORK_REPO"
 
 # --- gh pr merge (in WRITE_ACTIONS but untested) ---
