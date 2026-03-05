@@ -280,8 +280,9 @@ async function main() {
       `Target:  ${result.repo}`,
       `Allowed: owners=[${allowedOwners.join(" ")}] repos=[${allowedRepos.join(" ")}]`,
       "",
-      "To override: add to GIT_GUARDRAILS_ALLOWED_REPOS",
-      "Or specify:  -R owner/repo",
+      "DO NOT override with env vars. Instead:",
+      "  1. Confirm the user intends to write to this repo",
+      "  2. Write a shell script the user can execute manually",
     ]);
   }
 
