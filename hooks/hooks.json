@@ -6,12 +6,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/warn-main-branch.sh",
+            "command": "claude-hooks guardrails warn-main-branch",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-idle-return.sh",
+            "command": "claude-hooks guardrails check-idle-return",
             "timeout": 5
           }
         ]
@@ -21,17 +21,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-push-remote.sh",
+            "command": "claude-hooks guardrails guard-push-remote",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-gh-dangerous.sh",
+            "command": "claude-hooks guardrails guard-gh-dangerous",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-gh-write.sh",
+            "command": "claude-hooks guardrails guard-gh-write",
             "timeout": 5
           }
         ]
@@ -43,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-init.sh",
+            "command": "claude-hooks guardrails guard-git-init",
             "timeout": 5
           }
         ]
