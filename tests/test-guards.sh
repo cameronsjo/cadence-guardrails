@@ -5,6 +5,7 @@
 #
 # Requires:
 #   - jq
+#   - cadence-hooks binary on PATH
 #   - A fork repo with both origin (youruser/*) and upstream (other/*) remotes
 #   - A non-fork repo with only origin (youruser/*) remote
 #
@@ -13,10 +14,15 @@
 
 set -euo pipefail
 
+if ! command -v cadence-hooks &>/dev/null; then
+  echo "ERROR: cadence-hooks binary not found on PATH"
+  echo "Install: cargo install --path ~/Projects/claude-configurations/claude-hooks"
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOKS_DIR="$SCRIPT_DIR/../hooks"
-PUSH_HOOK="$HOOKS_DIR/guard-push-remote.sh"
-GH_HOOK="$HOOKS_DIR/guard-gh-write.sh"
+PUSH_HOOK="guard-push-remote"
+GH_HOOK="guard-gh-write"
 
 # Test repos — adjust if directory layout changes
 FORK_REPO="${FORK_REPO:-$(cd "$SCRIPT_DIR/../../superpowers" 2>/dev/null && pwd)}"
@@ -67,7 +73,7 @@ expect_block() {
   total=$((total + 1))
 
   set +e
-  output=$(make_input "$command" | (cd "$work_dir" && bash "$hook" 2>&1))
+  output=$(make_input "$command" | (cd "$work_dir" && cadence-hooks guardrails "$hook" 2>&1))
   exit_code=$?
   set -e
 
@@ -89,7 +95,7 @@ expect_allow() {
   total=$((total + 1))
 
   set +e
-  output=$(make_input "$command" | (cd "$work_dir" && bash "$hook" 2>&1))
+  output=$(make_input "$command" | (cd "$work_dir" && cadence-hooks guardrails "$hook" 2>&1))
   exit_code=$?
   set -e
 
@@ -193,10 +199,10 @@ export GIT_GUARDRAILS_ALLOWED_OWNERS="$_saved_owners"
 echo ""
 
 # ===================================================================
-# guard-push-remote.sh
+# guard-push-remote
 # ===================================================================
 
-echo "--- guard-push-remote.sh ---"
+echo "--- guard-push-remote ---"
 echo ""
 
 # Save fork tracking state so we can simulate the broken case
@@ -346,10 +352,10 @@ expect_allow \
 echo ""
 
 # ===================================================================
-# guard-gh-write.sh
+# guard-gh-write
 # ===================================================================
 
-echo "--- guard-gh-write.sh ---"
+echo "--- guard-gh-write ---"
 echo ""
 
 # --- Fork repo: all writes without -R should block ---
@@ -762,13 +768,13 @@ expect_allow \
 echo ""
 
 # ===================================================================
-# warn-main-branch.sh
+# warn-main-branch
 # ===================================================================
 
-echo "--- warn-main-branch.sh ---"
+echo "--- warn-main-branch ---"
 echo ""
 
-WARN_HOOK="$HOOKS_DIR/warn-main-branch.sh"
+WARN_HOOK="warn-main-branch"
 
 # Create a temporary git repo for warn tests
 warn_tmp=$(mktemp -d)
@@ -784,7 +790,7 @@ warn_hash=$(echo "$warn_repo_root" | (md5 -q 2>/dev/null || md5sum | cut -d' ' -
 rm -f /tmp/.claude-main-branch-warned-${warn_hash}-* 2>/dev/null || true
 
 # Test: warns on main branch
-output=$(cd "$warn_tmp" && bash "$WARN_HOOK" 2>&1)
+output=$(cd "$warn_tmp" && cadence-hooks guardrails "$WARN_HOOK" 2>&1)
 total=$((total + 1))
 if echo "$output" | grep -q "editing files directly on"; then
   echo "  PASS  warn: emits warning on main branch"
@@ -805,8 +811,8 @@ warn_suppress_helper=$(mktemp /tmp/warn-suppress-XXXX.sh)
 cat > "$warn_suppress_helper" << SUPPRESS_INNER
 #!/usr/bin/env bash
 cd "$warn_tmp"
-bash "$WARN_HOOK" > /tmp/warn-suppress-call1.out 2>&1
-bash "$WARN_HOOK" > /tmp/warn-suppress-call2.out 2>&1
+cadence-hooks guardrails "$WARN_HOOK" > /tmp/warn-suppress-call1.out 2>&1
+cadence-hooks guardrails "$WARN_HOOK" > /tmp/warn-suppress-call2.out 2>&1
 SUPPRESS_INNER
 chmod +x "$warn_suppress_helper"
 # Clean markers before running helper
@@ -828,7 +834,7 @@ fi
 
 # Test: warns again after marker removed (uses helper to match PPID)
 rm -f /tmp/.claude-main-branch-warned-${warn_hash}-* 2>/dev/null || true
-output=$(cd "$warn_tmp" && bash "$WARN_HOOK" 2>&1)
+output=$(cd "$warn_tmp" && cadence-hooks guardrails "$WARN_HOOK" 2>&1)
 total=$((total + 1))
 if echo "$output" | grep -q "editing files directly on"; then
   echo "  PASS  warn: warns again after marker removed"
@@ -842,7 +848,7 @@ rm -f /tmp/.claude-main-branch-warned-${warn_hash}-* 2>/dev/null || true
 
 # Test: silent on feature branch
 git -C "$warn_tmp" checkout -b feature/test --quiet
-output=$(cd "$warn_tmp" && bash "$WARN_HOOK" 2>&1)
+output=$(cd "$warn_tmp" && cadence-hooks guardrails "$WARN_HOOK" 2>&1)
 total=$((total + 1))
 if [ -z "$output" ]; then
   echo "  PASS  warn: silent on feature branch"
@@ -856,7 +862,7 @@ fi
 # Test: warns on master branch
 git -C "$warn_tmp" checkout -b master --quiet
 rm -f /tmp/.claude-main-branch-warned-${warn_hash}-* 2>/dev/null || true
-output=$(cd "$warn_tmp" && bash "$WARN_HOOK" 2>&1)
+output=$(cd "$warn_tmp" && cadence-hooks guardrails "$WARN_HOOK" 2>&1)
 total=$((total + 1))
 if echo "$output" | grep -q "editing files directly on"; then
   echo "  PASS  warn: warns on master branch"
@@ -870,7 +876,7 @@ rm -f /tmp/.claude-main-branch-warned-${warn_hash}-* 2>/dev/null || true
 
 # Test: silent in detached HEAD
 git -C "$warn_tmp" checkout --detach --quiet
-output=$(cd "$warn_tmp" && bash "$WARN_HOOK" 2>&1)
+output=$(cd "$warn_tmp" && cadence-hooks guardrails "$WARN_HOOK" 2>&1)
 total=$((total + 1))
 if [ -z "$output" ]; then
   echo "  PASS  warn: silent in detached HEAD"
@@ -882,7 +888,7 @@ else
 fi
 
 # Test: silent outside git repo
-output=$(cd /tmp && bash "$WARN_HOOK" 2>&1)
+output=$(cd /tmp && cadence-hooks guardrails "$WARN_HOOK" 2>&1)
 total=$((total + 1))
 if [ -z "$output" ]; then
   echo "  PASS  warn: silent outside git repo"
@@ -896,7 +902,7 @@ fi
 # Test: always exits 0 (advisory, never blocks)
 rm -f /tmp/.claude-main-branch-warned-${warn_hash}-* 2>/dev/null || true
 git -C "$warn_tmp" checkout main --quiet
-(cd "$warn_tmp" && bash "$WARN_HOOK") >/dev/null 2>&1
+(cd "$warn_tmp" && cadence-hooks guardrails "$WARN_HOOK") >/dev/null 2>&1
 exit_code=$?
 total=$((total + 1))
 if [ "$exit_code" -eq 0 ]; then
@@ -914,13 +920,13 @@ rm -f /tmp/.claude-main-branch-warned-${warn_hash}-* 2>/dev/null || true
 echo ""
 
 # ===================================================================
-# check-idle-return.sh
+# check-idle-return
 # ===================================================================
 
-echo "--- check-idle-return.sh ---"
+echo "--- check-idle-return ---"
 echo ""
 
-IDLE_HOOK="$HOOKS_DIR/check-idle-return.sh"
+IDLE_HOOK="check-idle-return"
 
 # Derive the marker path the same way the hook does:
 # git rev-parse --show-toplevel from OWN_REPO (no path discrepancy on non-tmpfs dirs)
@@ -931,7 +937,7 @@ idle_marker="/tmp/.claude-last-edit-${idle_hash}"
 
 # Test: first edit — no nudge, no marker previously
 rm -f "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 total=$((total + 1))
 if [ -z "$output" ]; then
   echo "  PASS  idle: first edit in session — no nudge"
@@ -944,7 +950,7 @@ fi
 
 # Test: recent edit (1 minute ago) — no nudge
 echo $(($(date +%s) - 60)) > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 total=$((total + 1))
 if [ -z "$output" ]; then
   echo "  PASS  idle: recent edit (60s ago) — no nudge"
@@ -957,7 +963,7 @@ fi
 
 # Test: stale edit (400s ago) — nudge fires
 echo $(($(date +%s) - 400)) > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 total=$((total + 1))
 if echo "$output" | grep -q "since your last edit"; then
   echo "  PASS  idle: stale edit (400s ago) — nudge fires"
@@ -970,7 +976,7 @@ fi
 
 # Test: exactly 300s — nudge fires (>= 300)
 echo $(($(date +%s) - 300)) > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 total=$((total + 1))
 if echo "$output" | grep -q "since your last edit"; then
   echo "  PASS  idle: exactly 300s — nudge fires (>= boundary)"
@@ -983,7 +989,7 @@ fi
 
 # Test: 299s — no nudge (below threshold)
 echo $(($(date +%s) - 299)) > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 total=$((total + 1))
 if [ -z "$output" ]; then
   echo "  PASS  idle: 299s — no nudge (below threshold)"
@@ -996,7 +1002,7 @@ fi
 
 # Test: cross-session stale marker (24h ago) — no nudge (capped at 8h)
 echo $(($(date +%s) - 86400)) > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 total=$((total + 1))
 if [ -z "$output" ]; then
   echo "  PASS  idle: cross-session marker (24h ago) — no nudge (8h cap)"
@@ -1009,7 +1015,7 @@ fi
 
 # Test: ~8h minus margin (just under 8h cap) — nudge fires
 echo $(($(date +%s) - 28790)) > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 total=$((total + 1))
 if echo "$output" | grep -q "since your last edit"; then
   echo "  PASS  idle: just under 8h cap — nudge fires"
@@ -1022,7 +1028,7 @@ fi
 
 # Test: corrupted marker (non-numeric) — no crash, no nudge
 echo "garbage" > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 exit_code=$?
 total=$((total + 1))
 if [ "$exit_code" -eq 0 ] && [ -z "$output" ]; then
@@ -1036,7 +1042,7 @@ fi
 
 # Test: empty marker file — no crash, no nudge
 > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 exit_code=$?
 total=$((total + 1))
 if [ "$exit_code" -eq 0 ] && [ -z "$output" ]; then
@@ -1050,7 +1056,7 @@ fi
 
 # Test: marker updated after run
 echo $(($(date +%s) - 60)) > "$idle_marker"
-(cd "$OWN_REPO" && bash "$IDLE_HOOK") >/dev/null 2>&1
+(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK") >/dev/null 2>&1
 new_ts=$(cat "$idle_marker")
 now=$(date +%s)
 diff=$((now - new_ts))
@@ -1065,7 +1071,7 @@ fi
 
 # Test: not in git repo — no output
 rm -f "$idle_marker"
-output=$(cd /tmp && bash "$IDLE_HOOK" 2>&1)
+output=$(cd /tmp && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 total=$((total + 1))
 if [ -z "$output" ]; then
   echo "  PASS  idle: silent outside git repo"
@@ -1078,7 +1084,7 @@ fi
 
 # Test: always exits 0 (advisory, never blocks)
 echo "garbage" > "$idle_marker"
-(cd "$OWN_REPO" && bash "$IDLE_HOOK") >/dev/null 2>&1
+(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK") >/dev/null 2>&1
 exit_code=$?
 total=$((total + 1))
 if [ "$exit_code" -eq 0 ]; then
@@ -1301,7 +1307,7 @@ echo ""
 # Test: completely empty input (no JSON at all)
 total=$((total + 1))
 set +e
-output=$(echo "" | (cd "$OWN_REPO" && bash "$PUSH_HOOK" 2>&1))
+output=$(echo "" | (cd "$OWN_REPO" && cadence-hooks guardrails "$PUSH_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
@@ -1315,7 +1321,7 @@ fi
 
 total=$((total + 1))
 set +e
-output=$(echo "" | (cd "$OWN_REPO" && bash "$GH_HOOK" 2>&1))
+output=$(echo "" | (cd "$OWN_REPO" && cadence-hooks guardrails "$GH_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
@@ -1330,7 +1336,7 @@ fi
 # Test: valid JSON but missing command field
 total=$((total + 1))
 set +e
-output=$(echo '{"tool_name":"Bash","tool_input":{}}' | (cd "$OWN_REPO" && bash "$PUSH_HOOK" 2>&1))
+output=$(echo '{"tool_name":"Bash","tool_input":{}}' | (cd "$OWN_REPO" && cadence-hooks guardrails "$PUSH_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
@@ -1344,7 +1350,7 @@ fi
 
 total=$((total + 1))
 set +e
-output=$(echo '{"tool_name":"Bash","tool_input":{}}' | (cd "$OWN_REPO" && bash "$GH_HOOK" 2>&1))
+output=$(echo '{"tool_name":"Bash","tool_input":{}}' | (cd "$OWN_REPO" && cadence-hooks guardrails "$GH_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
@@ -1359,7 +1365,7 @@ fi
 # Test: invalid JSON (jq will fail)
 total=$((total + 1))
 set +e
-output=$(echo 'not json at all' | (cd "$OWN_REPO" && bash "$PUSH_HOOK" 2>&1))
+output=$(echo 'not json at all' | (cd "$OWN_REPO" && cadence-hooks guardrails "$PUSH_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
@@ -1373,7 +1379,7 @@ fi
 
 total=$((total + 1))
 set +e
-output=$(echo 'not json at all' | (cd "$OWN_REPO" && bash "$GH_HOOK" 2>&1))
+output=$(echo 'not json at all' | (cd "$OWN_REPO" && cadence-hooks guardrails "$GH_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
@@ -1647,7 +1653,7 @@ echo ""
 # Test: negative gap (clock skew — marker is in the future)
 future_ts=$(($(date +%s) + 600))
 echo "$future_ts" > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 exit_code=$?
 total=$((total + 1))
 if [ "$exit_code" -eq 0 ] && [ -z "$output" ]; then
@@ -1661,7 +1667,7 @@ fi
 
 # Test: marker with trailing whitespace/newline (real-world file writes)
 echo "  $(( $(date +%s) - 400 ))  " > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 exit_code=$?
 total=$((total + 1))
 if [ "$exit_code" -eq 0 ]; then
@@ -1675,7 +1681,7 @@ fi
 
 # Test: very large timestamp (year 2100) — gap exceeds 8h cap
 echo "4102444800" > "$idle_marker"
-output=$(cd "$OWN_REPO" && bash "$IDLE_HOOK" 2>&1)
+output=$(cd "$OWN_REPO" && cadence-hooks guardrails "$IDLE_HOOK" 2>&1)
 exit_code=$?
 total=$((total + 1))
 if [ "$exit_code" -eq 0 ]; then
@@ -1693,12 +1699,12 @@ rm -f "$idle_marker"
 echo ""
 
 # ===================================================================
-# guard-gh-dangerous.sh
+# guard-gh-dangerous
 # ===================================================================
 
-DANGEROUS_HOOK="$HOOKS_DIR/guard-gh-dangerous.sh"
+DANGEROUS_HOOK="guard-gh-dangerous"
 
-echo "--- guard-gh-dangerous.sh: core blocking ---"
+echo "--- guard-gh-dangerous: core blocking ---"
 echo ""
 
 # --- The exact scenario that burned us ---
@@ -1746,7 +1752,7 @@ expect_block \
   "gh repo delete someorg/important-repo --yes"
 
 echo ""
-echo "--- guard-gh-dangerous.sh: command chaining ---"
+echo "--- guard-gh-dangerous: command chaining ---"
 echo ""
 
 # --- Compound commands ---
@@ -1782,7 +1788,7 @@ expect_block \
   "echo yes | gh repo delete $OWN_OWNER/my-repo"
 
 echo ""
-echo "--- guard-gh-dangerous.sh: loops ---"
+echo "--- guard-gh-dangerous: loops ---"
 echo ""
 
 # --- Loop / batch patterns (mass deletion) ---
@@ -1813,7 +1819,7 @@ expect_block \
   "sh -c \"gh repo delete $OWN_OWNER/my-repo --yes\""
 
 echo ""
-echo "--- guard-gh-dangerous.sh: passthrough ---"
+echo "--- guard-gh-dangerous: passthrough ---"
 echo ""
 
 # --- Non-delete gh commands pass through ---
@@ -1899,7 +1905,7 @@ expect_allow \
   ""
 
 echo ""
-echo "--- guard-gh-dangerous.sh: prose resistance ---"
+echo "--- guard-gh-dangerous: prose resistance ---"
 echo ""
 
 # --- False positive resistance: "delete" in quoted strings ---
@@ -1956,14 +1962,14 @@ expect_allow \
   "bash -c \"echo hello\""
 
 echo ""
-echo "--- guard-gh-dangerous.sh: malformed input ---"
+echo "--- guard-gh-dangerous: malformed input ---"
 echo ""
 
 # --- Malformed / unexpected input ---
 
 total=$((total + 1))
 set +e
-output=$(echo "" | (cd "$OWN_REPO" && bash "$DANGEROUS_HOOK" 2>&1))
+output=$(echo "" | (cd "$OWN_REPO" && cadence-hooks guardrails "$DANGEROUS_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
@@ -1977,7 +1983,7 @@ fi
 
 total=$((total + 1))
 set +e
-output=$(echo '{"tool_name":"Bash","tool_input":{}}' | (cd "$OWN_REPO" && bash "$DANGEROUS_HOOK" 2>&1))
+output=$(echo '{"tool_name":"Bash","tool_input":{}}' | (cd "$OWN_REPO" && cadence-hooks guardrails "$DANGEROUS_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
@@ -1991,7 +1997,7 @@ fi
 
 total=$((total + 1))
 set +e
-output=$(echo 'not json at all' | (cd "$OWN_REPO" && bash "$DANGEROUS_HOOK" 2>&1))
+output=$(echo 'not json at all' | (cd "$OWN_REPO" && cadence-hooks guardrails "$DANGEROUS_HOOK" 2>&1))
 exit_code=$?
 set -e
 if [ "$exit_code" -eq 0 ]; then
