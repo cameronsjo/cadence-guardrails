@@ -17,6 +17,16 @@
         ]
       },
       {
+        "matcher": "CronCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude-hooks guardrails warn-cron-datetime",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
