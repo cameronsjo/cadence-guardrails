@@ -16,7 +16,7 @@ set -euo pipefail
 
 if ! command -v cadence-hooks &>/dev/null; then
   echo "ERROR: cadence-hooks binary not found on PATH"
-  echo "Install: cargo install --path ~/Projects/claude-configurations/claude-hooks"
+  echo "Install: cargo install --path ~/Projects/claude-configurations/cadence-hooks"
   exit 1
 fi
 
