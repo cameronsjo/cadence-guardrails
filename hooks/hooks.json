@@ -6,12 +6,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "claude-hooks guardrails warn-main-branch",
+            "command": "cadence-hooks guardrails warn-main-branch",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "claude-hooks guardrails check-idle-return",
+            "command": "cadence-hooks guardrails check-idle-return",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "CronCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cadence-hooks guardrails warn-cron-datetime",
             "timeout": 5
           }
         ]
@@ -21,17 +31,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "claude-hooks guardrails guard-push-remote",
+            "command": "cadence-hooks guardrails guard-push-remote",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "claude-hooks guardrails guard-gh-dangerous",
+            "command": "cadence-hooks guardrails guard-gh-dangerous",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "claude-hooks guardrails guard-gh-write",
+            "command": "cadence-hooks guardrails guard-gh-write",
             "timeout": 5
           }
         ]
@@ -43,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "claude-hooks guardrails guard-git-init",
+            "command": "cadence-hooks guardrails guard-git-init",
             "timeout": 5
           }
         ]
