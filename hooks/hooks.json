@@ -1,17 +1,29 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/ensure-binary.sh'",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "cadence-hooks guardrails warn-main-branch",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails warn-main-branch",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "cadence-hooks guardrails check-idle-return",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails check-idle-return",
             "timeout": 5
           }
         ]
@@ -21,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cadence-hooks guardrails warn-cron-datetime",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails warn-cron-datetime",
             "timeout": 5
           }
         ]
@@ -31,17 +43,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cadence-hooks guardrails guard-push-remote",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-push-remote",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "cadence-hooks guardrails guard-gh-dangerous",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-gh-dangerous",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "cadence-hooks guardrails guard-gh-write",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-gh-write",
             "timeout": 5
           }
         ]
@@ -53,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cadence-hooks guardrails guard-git-init",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-git-init",
             "timeout": 5
           }
         ]
