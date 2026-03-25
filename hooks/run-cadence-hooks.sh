@@ -4,12 +4,19 @@
 # Usage: run-cadence-hooks.sh <subcommand> [args...]
 set -euo pipefail
 
-BINARY="${CLAUDE_PLUGIN_DATA:-}/bin/cadence-hooks"
+BINARY=""
 
-if [ ! -x "$BINARY" ]; then
+# Check plugin data dir first
+if [ -n "${CLAUDE_PLUGIN_DATA:-}" ] && [ -x "${CLAUDE_PLUGIN_DATA}/bin/cadence-hooks" ]; then
+  BINARY="${CLAUDE_PLUGIN_DATA}/bin/cadence-hooks"
+fi
+
+# Fall back to PATH
+if [ -z "$BINARY" ]; then
   BINARY=$(command -v cadence-hooks 2>/dev/null || true)
 fi
 
+# Fail open if not found
 if [ -z "$BINARY" ]; then
   exit 0
 fi

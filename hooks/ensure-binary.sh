@@ -4,6 +4,11 @@
 # All failure paths exit 0 (fail open per ADR 0008).
 set -euo pipefail
 
+# Fail open if required env vars are not set
+if [ -z "${CLAUDE_PLUGIN_DATA:-}" ] || [ -z "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  exit 0
+fi
+
 BIN_DIR="${CLAUDE_PLUGIN_DATA}/bin"
 BINARY="${BIN_DIR}/cadence-hooks"
 EXPECTED=$(cat "${CLAUDE_PLUGIN_ROOT}/hooks/binary-version.txt" 2>/dev/null || echo "unknown")
