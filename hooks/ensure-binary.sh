@@ -12,6 +12,10 @@ fi
 BIN_DIR="${CLAUDE_PLUGIN_DATA}/bin"
 BINARY="${BIN_DIR}/cadence-hooks"
 EXPECTED=$(cat "${CLAUDE_PLUGIN_ROOT}/hooks/binary-version.txt" 2>/dev/null || echo "unknown")
+if [ "$EXPECTED" = "unknown" ]; then
+  echo "cadence-hooks: binary-version.txt missing or unreadable" >&2
+  exit 0
+fi
 
 # Already installed and correct version?
 if [ -x "$BINARY" ]; then
@@ -39,18 +43,18 @@ fi
 
 # Install in a subshell so failures don't propagate under set -e
 if ! (
-  TMPDIR=$(mktemp -d)
-  trap 'rm -rf "$TMPDIR"' EXIT
+  TMP_DIR=$(mktemp -d)
+  trap 'rm -rf "$TMP_DIR"' EXIT
   ARCHIVE="cadence-hooks-v${EXPECTED}-${PLATFORM}.tar.gz"
 
   gh release download "v${EXPECTED}" \
     --repo cameronsjo/cadence-hooks \
     --pattern "$ARCHIVE" \
-    --dir "$TMPDIR" \
+    --dir "$TMP_DIR" \
     --clobber 2>/dev/null
 
   mkdir -p "$BIN_DIR"
-  tar -xzf "${TMPDIR}/${ARCHIVE}" -C "$BIN_DIR"
+  tar -xzf "${TMP_DIR}/${ARCHIVE}" -C "$BIN_DIR"
   chmod +x "$BINARY"
 ); then
   echo "cadence-hooks: install failed" >&2
