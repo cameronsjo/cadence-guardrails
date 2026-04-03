@@ -44,16 +44,19 @@
           {
             "type": "command",
             "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-push-remote",
+            "if": "Bash(*git push*)",
             "timeout": 5
           },
           {
             "type": "command",
             "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-gh-dangerous",
+            "if": "Bash(*gh repo delete*)",
             "timeout": 5
           },
           {
             "type": "command",
             "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-gh-write",
+            "if": "Bash(*gh *)",
             "timeout": 5
           }
         ]
@@ -66,6 +69,7 @@
           {
             "type": "command",
             "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-git-init",
+            "if": "Bash(*git init*)",
             "timeout": 5
           }
         ]
