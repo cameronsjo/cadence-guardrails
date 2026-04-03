@@ -1,11 +1,18 @@
 {
   "name": "git-guardrails",
-  "version": "1.0.0",
   "description": "Git safety hooks: block pushes and gh writes to repos you don't own, branch warnings, commit nudges",
-  "author": { "name": "Cameron Sjo", "url": "https://github.com/cameronsjo" },
+  "author": {
+    "name": "Cameron Sjo",
+    "url": "https://github.com/cameronsjo"
+  },
   "repository": "https://github.com/cameronsjo/git-guardrails",
   "license": "BSL-1.1",
-  "keywords": ["git", "hooks", "workflow", "guardrails"],
+  "keywords": [
+    "git",
+    "hooks",
+    "workflow",
+    "guardrails"
+  ],
   "userConfig": {
     "githubUsername": {
       "type": "string",
