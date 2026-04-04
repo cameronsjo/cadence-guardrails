@@ -58,6 +58,18 @@
             "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-gh-write",
             "if": "Bash(*gh *)",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails warn-untracked",
+            "if": "Bash(*git commit*)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails warn-branch-base",
+            "if": "Bash(*git checkout*|*git switch*)",
+            "timeout": 5
           }
         ]
       }
