@@ -83,6 +83,12 @@
             "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-git-init",
             "if": "Bash(*git init*)",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails nudge-upgrade-after-push",
+            "if": "Bash(*git push*)",
+            "timeout": 5
           }
         ]
       }
