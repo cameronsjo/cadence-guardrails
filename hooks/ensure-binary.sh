@@ -20,7 +20,22 @@ fi
 # Already installed and correct version?
 if [ -x "$BINARY" ]; then
   CURRENT=$("$BINARY" --version 2>/dev/null | awk '{print $2}' || echo "unknown")
-  [ "$EXPECTED" = "$CURRENT" ] && exit 0
+  if [ "$EXPECTED" = "$CURRENT" ]; then
+    # Check if PATH has a newer version (e.g. Homebrew upgrade)
+    PATH_BINARY=$(command -v cadence-hooks 2>/dev/null || true)
+    if [ -n "$PATH_BINARY" ] && [ "$PATH_BINARY" != "$BINARY" ]; then
+      PATH_VERSION=$("$PATH_BINARY" --version 2>/dev/null | awk '{print $2}' || echo "unknown")
+      if [ "$PATH_VERSION" != "unknown" ] && [ "$PATH_VERSION" != "$CURRENT" ]; then
+        # Use sort -V to compare semver; if PATH is newer, sync it
+        NEWER=$(printf '%s\n%s\n' "$CURRENT" "$PATH_VERSION" | sort -V | tail -1)
+        if [ "$NEWER" = "$PATH_VERSION" ] && [ "$NEWER" != "$CURRENT" ]; then
+          cp "$PATH_BINARY" "$BINARY"
+          echo "cadence-hooks synced from PATH: ${CURRENT} → ${PATH_VERSION}" >&2
+        fi
+      fi
+    fi
+    exit 0
+  fi
 fi
 
 # Detect platform
