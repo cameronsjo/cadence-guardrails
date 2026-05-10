@@ -1,11 +1,11 @@
 {
-  "name": "git-guardrails",
+  "name": "cadence-guardrails",
   "description": "Git safety hooks: block pushes and gh writes to repos you don't own, branch warnings, commit nudges",
   "author": {
     "name": "Cameron Sjo",
     "url": "https://github.com/cameronsjo"
   },
-  "repository": "https://github.com/cameronsjo/git-guardrails",
+  "repository": "https://github.com/cameronsjo/cadence-guardrails",
   "license": "BSL-1.1",
   "keywords": [
     "git",
