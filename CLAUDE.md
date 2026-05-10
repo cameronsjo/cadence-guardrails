@@ -1,4 +1,4 @@
-# git-guardrails
+# cadence-guardrails
 
 ## Architecture
 
@@ -11,7 +11,7 @@ Shell scripts are thin wrappers — behavior changes require modifying and relea
 
 ```bash
 FORK_REPO=~/Projects/claude-configurations/superpowers-developing-for-claude-code \
-OWN_REPO=~/Projects/claude-configurations/git-guardrails \
+OWN_REPO=~/Projects/claude-configurations/cadence-guardrails \
 ./tests/test-guards.sh
 ```
 

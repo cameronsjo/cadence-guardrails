@@ -1,4 +1,4 @@
-# git-guardrails
+# cadence-guardrails
 
 Safety guardrails for Claude Code's git and GitHub CLI operations. Blocks pushes and `gh`
 write commands targeting repos you don't own, warns when editing directly on main/master,
@@ -115,8 +115,8 @@ The two blocking hooks guard different surfaces and use different resolution mod
 ## Install
 
 ```bash
-claude plugin install git-guardrails@workbench
-claude plugin enable git-guardrails@workbench
+claude plugin install cadence-guardrails@workbench
+claude plugin enable cadence-guardrails@workbench
 ```
 
 ## Setup
