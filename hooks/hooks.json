@@ -6,12 +6,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails warn-main-branch",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-main-branch",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails check-idle-return",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails check-idle-return",
             "timeout": 5
           }
         ]
@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails warn-cron-datetime",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-cron-datetime",
             "timeout": 5
           }
         ]
@@ -31,31 +31,31 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-push-remote",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-push-remote",
             "if": "Bash(*git push*)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-gh-dangerous",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-gh-dangerous",
             "if": "Bash(*gh repo delete*)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-gh-write",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-gh-write",
             "if": "Bash(*gh *)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails warn-untracked",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-untracked",
             "if": "Bash(*git commit*)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails warn-branch-base",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-branch-base",
             "if": "Bash(*git checkout*|*git switch*)",
             "timeout": 5
           }
@@ -68,13 +68,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails guard-git-init",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-git-init",
             "if": "Bash(*git init*)",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh' guardrails nudge-upgrade-after-push",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails nudge-upgrade-after-push",
             "if": "Bash(*git push*)",
             "timeout": 5
           }
