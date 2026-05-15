@@ -195,3 +195,40 @@ The test suite requires:
 - An owned repo with only an `origin` remote.
 
 The suite covers 159 scenarios across all four hooks.
+
+## Troubleshooting
+
+### Hooks don't fire (plugin cache desync)
+
+**Symptom:** `/plugin` UI shows cadence-guardrails as "Enabled", but `git push` and
+`gh pr create` to non-owned repos go through unchallenged. The `/plugin` detail view
+shows `Plugin "cadence-guardrails" not cached at (not recorded)`.
+
+**Root cause:** `settings.json` has the plugin enabled (`"cadence-guardrails@workbench": true`)
+but `installed_plugins.json` has no entry for it. Without an `installPath` in
+`installed_plugins.json`, the harness never loads the plugin's `hooks/hooks.json`, so
+no `PreToolUse` hooks register.
+
+This can happen when:
+- The plugin was uninstalled and reinstalled without a clean removal
+- `installed_plugins.json` was reset or corrupted while `settings.json` retained the
+  enable flag
+- A marketplace update orphaned the cache entry
+
+**Fix:**
+
+```bash
+CLAUDECODE= claude plugin install cadence-guardrails@workbench
+```
+
+This re-creates the `installed_plugins.json` entry with the correct cache path. Restart
+Claude Code for hooks to take effect.
+
+**Verify:** After restart, test with a dry run:
+
+```bash
+echo '{"tool_name":"Bash","tool_input":{"command":"gh pr create --repo someone-else/repo"}}' \
+  | cadence-hooks guardrails guard-gh-write
+```
+
+Should exit 2 with a block message. Exit 0 means the guard didn't fire.
