@@ -7,6 +7,29 @@ gates — biased toward blocking suspicious operations rather than letting them 
 Claude can always run a command manually if a block is incorrect; it cannot undo a push to
 upstream.
 
+## Threat model: hooks vs. sandbox
+
+These guardrails enforce **policy at the Claude Code level**. They run as `PreToolUse`
+hooks — evaluated *before* a command executes — and guard against accidental self-harm: an
+errant `git push`, a `gh` write to a repo you don't own, an edit landing straight on `main`.
+They decide whether an operation is *allowed to start*.
+
+They do **not** provide OS isolation. A hook cannot contain a process it has already
+allowed — once `git push` or a build script is running, nothing here stops it from reaching
+the filesystem or network. Guardrails are the **policy** layer; an OS sandbox is the
+**containment** layer, and the two are complementary rather than interchangeable.
+
+For unattended or low-supervision runs, pair these guardrails with real isolation:
+
+- **`--dangerously-skip-permissions` MUST run inside a container/VM** or under
+  [`@anthropic-ai/sandbox-runtime`](https://code.claude.com/docs/en/sandboxing), which wraps
+  the entire Claude Code process in OS-level filesystem and network boundaries.
+- **Auto mode** keeps permission prompts, but still benefits from an isolation boundary as
+  defense-in-depth — containment limits the blast radius if a prompt is mis-approved.
+
+A sandbox is OS-enforced but [not a complete boundary](https://code.claude.com/docs/en/sandboxing),
+and these guardrails are policy-only. Use both for unattended work; neither replaces the other.
+
 ## Hooks
 
 ### `guard-push-remote.sh`
