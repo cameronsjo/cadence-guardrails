@@ -13,6 +13,11 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails check-idle-return",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-dotfiles",
+            "timeout": 5
           }
         ]
       },
@@ -58,6 +63,12 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-branch-base",
             "if": "Bash(*git checkout*|*git switch*)",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-pr-issue-link",
+            "if": "Bash(*gh pr create*)",
+            "timeout": 5
           }
         ]
       }
@@ -77,6 +88,12 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails nudge-upgrade-after-push",
             "if": "Bash(*git push*)",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails verify-pr-autoclose",
+            "if": "Bash(*gh pr create*|*gh pr merge*)",
+            "timeout": 30
           }
         ]
       }
