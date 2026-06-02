@@ -69,6 +69,36 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-pr-issue-link",
             "if": "Bash(*gh pr create*)",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-op-vault-scan",
+            "if": "Bash(*op item*|*op vault*)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-curl-alias",
+            "if": "Bash(*curl *)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-gh-merge-preflight",
+            "if": "Bash(*gh pr merge*)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-coderabbit-retrigger",
+            "if": "Bash(*coderabbitai*)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-alias-parsing",
+            "if": "Bash(*ls *|*find *|*cat *|*du *|*df *|*top *)",
+            "timeout": 5
           }
         ]
       }
