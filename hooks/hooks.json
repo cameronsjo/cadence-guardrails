@@ -66,7 +66,7 @@
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-pr-issue-link",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-pr-issue-link",
             "if": "Bash(*gh pr create*)",
             "timeout": 5
           },
