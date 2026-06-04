@@ -110,7 +110,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-git-init",
-            "if": "Bash(*git init*)",
+            "if": "Bash(*git init*|*gh repo create*)",
             "timeout": 5
           },
           {
