@@ -72,6 +72,12 @@
           },
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-issue-tracker",
+            "if": "Bash(*gh issue create*|*/issues*)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-op-vault-scan",
             "if": "Bash(*op item*|*op vault*)",
             "timeout": 5
@@ -120,7 +126,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-git-init",
-            "if": "Bash(*git init*|*gh repo create*)",
+            "if": "Bash(*git init*)",
             "timeout": 5
           },
           {
