@@ -101,6 +101,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "mcp__claude-in-chrome__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails guard-browser-device",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
