@@ -1,5 +1,5 @@
 ---
-name: guardrails-init
+name: cadence-guardrails:guardrails-init
 description: >
   Configure git-guardrails with your GitHub identity. Self-destructs after setup
   so it reappears when the plugin updates.
