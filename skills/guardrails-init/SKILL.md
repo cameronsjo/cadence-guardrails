@@ -1,8 +1,6 @@
 ---
 name: cadence-guardrails:guardrails-init
-description: >
-  Configure git-guardrails with your GitHub identity. Self-destructs after setup
-  so it reappears when the plugin updates.
+description: Use when configuring git-guardrails with your GitHub identity after install or update. Self-destructs after setup so it reappears when the plugin updates.
 license: MIT
 metadata:
   author: cameronsjo
