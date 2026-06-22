@@ -22,6 +22,16 @@
         ]
       },
       {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-cadence-hooks.sh\" guardrails warn-subagent-worktree",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "CronCreate",
         "hooks": [
           {
